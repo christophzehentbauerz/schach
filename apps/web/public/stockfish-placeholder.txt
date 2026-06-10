@@ -1,0 +1,2 @@
+Place stockfish.js and related WASM files here for browser-side production analysis.
+The API already exposes an analysis abstraction, so teams can also deploy Stockfish server-side.
