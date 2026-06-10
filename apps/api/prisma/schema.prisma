@@ -1,0 +1,63 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  passwordHash String?
+  googleId     String?  @unique
+  locale       String   @default("de")
+  skillLevel   String   @default("beginner")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  games        Game[]
+  profile      LearnerProfile?
+}
+
+model Game {
+  id        String   @id @default(cuid())
+  userId    String
+  pgn       String
+  finalFen  String
+  result    String?
+  accuracy  Float?
+  report    Json?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  analyses  MoveAnalysisRecord[]
+}
+
+model MoveAnalysisRecord {
+  id        String   @id @default(cuid())
+  gameId    String
+  ply       Int
+  fen       String
+  move      String
+  quality   String
+  evalCp    Float
+  motifs    String[]
+  payload   Json
+  createdAt DateTime @default(now())
+  game      Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+}
+
+model LearnerProfile {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  estimatedElo       Int      @default(900)
+  accuracyTrend      Float[]  @default([])
+  eloTrend           Int[]    @default([])
+  tacticalWeaknesses String[] @default([])
+  strategicWeaknesses String[] @default([])
+  openingKnowledge   Json     @default("{}")
+  endgameKnowledge   Json     @default("{}")
+  updatedAt          DateTime @updatedAt
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
