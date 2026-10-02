@@ -5,16 +5,17 @@ import { saveGame, restoreGame, recordMove } from '../public/saved-game.js';
 import { outcomeFromGame, rateGame } from '../public/rating.js';
 import { grade } from '../public/analysis-model.js';
 import { validateState } from '../server/http.js';
-import { authorized, sameOrigin, sessionCookie, passwordMatches } from '../server/auth.js';
-import { scryptSync } from 'node:crypto';
+import { authorized, sameOrigin, sessionCookie } from '../server/identity.js';
+
 
 test('special starting position survives save and reload',()=>{
   const game=new Chess('7k/8/8/8/8/8/6P1/6K1 w - - 0 1');
   const before=game.fen(),move=game.move('g3'),records=[recordMove(game,move,before)];
   const values=new Map(),storage={getItem:k=>values.get(k),setItem:(k,v)=>values.set(k,v)};
+  game.header('White','Anna','Black','Chris','Result','1-0');
   saveGame(storage,game,'two',800,records);
   const restored=restoreGame(storage);
-  assert.equal(restored.game.fen(),game.fen());assert.equal(restored.records[0].before,before);
+  assert.equal(restored.game.getHeaders().White,'Anna');assert.equal(restored.game.getHeaders().Result,'1-0');assert.equal(restored.game.fen(),game.fen());assert.equal(restored.records[0].before,before);
 });
 test('black player victory and draw are rated correctly',()=>{
   const game=new Chess();['f3','e5','g4','Qh4#'].forEach(m=>game.move(m));
@@ -33,10 +34,8 @@ test('state API rejects malformed payloads and prototype keys',()=>{
 });
 test('private API requires signed unexpired cookie and same-origin writes',()=>{
   process.env.VERCEL='1';process.env.DATABASE_URL='configured';process.env.SESSION_SECRET='a'.repeat(64);
-  const salt='test-salt';process.env.PASSWORD_HASH=salt+':'+scryptSync('test-password',salt,64).toString('hex');
-  assert.equal(passwordMatches('test-password'),true);assert.equal(passwordMatches('wrong'),false);
   assert.equal(authorized({headers:{}}),false);
-  const cookie=sessionCookie().split(';')[0];
+  const cookie=sessionCookie('personal').split(';')[0];
   assert.equal(authorized({headers:{cookie}}),true);
   assert.equal(authorized({headers:{cookie:cookie+'tampered'}}),false);
   assert.equal(sameOrigin({headers:{origin:'https://evil.test',host:'coach.test'}}),false);

@@ -219,7 +219,7 @@ try{
 }catch{saveBlocked=true;$('save-status').textContent='Spielstand konnte nicht geladen werden. Bitte Sicherung wiederherstellen; gespeicherte Daten bleiben erhalten.';}
 scheduleComputer();render();renderRating();
 if(restored&&ended())settleLearningRating();
-library=setupLibrary({progress:()=>learningRating,getCurrent:()=>({game,meta}),open:(item,saved,index)=>{persistGame();meta={id:item.id,color:item.color,createdAt:item.createdAt,result:item.result,assisted:item.assisted,ratingResult:item.ratingResult};playerColor=meta.color||'w';loadSaved(saved);persistGame();if(item.result||index!==undefined)review.open(index||0);}});
+library=setupLibrary({progress:()=>learningRating,getCurrent:()=>({game,meta}),open:(item,saved,index)=>{persistGame();meta={id:item.id,color:item.color,createdAt:item.createdAt,result:item.result,assisted:item.assisted,ratingResult:item.ratingResult,opponentName:item.opponentName};playerColor=meta.color||'w';loadSaved(saved);persistGame();if(item.result||index!==undefined)review.open(index||0);}});
 $('resign').onclick=()=>{if(ended()||!records.length||mode!=='ai')return;if(!confirm('Diese Partie aufgeben? Sie bleibt im Archiv.'))return;cancelComputer();meta.result='loss';persistGame();finishGame();render();};
 $('flip-board').onclick=()=>{document.body.classList.toggle('flipped');render();};
 $('play-color').value=playerColor;
@@ -227,4 +227,17 @@ $('play-color').onchange=()=>{$('color-note').textContent='Gilt für die nächst
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&review?.busy){$('pause-analysis').click();}});
 window.addEventListener('pagehide',()=>{cancelComputer();review?.reset();});
 window.addEventListener('pageshow',event=>{if(event.persisted){scheduleComputer();render();}});
+document.addEventListener('coach-view',event=>{if(event.detail!=='play'){cancelComputer();if(review?.busy)$('pause-analysis').click();}else if(!review?.active){scheduleComputer();render();}});
+export function openFriendReview(room){
+  if(room.status!=='finished')return;
+  if(records.length)persistGame();review?.reset();cancelComputer();
+  game=new Chess();records=[];
+  for(const san of room.moves){const before=game.fen(),move=game.move(san);records.push(recordMove(game,move,before));}
+  game.header('Event','Schachcoach · Freundschaftspartie','White',room.white.name,'Black',room.black.name,'Result',room.result);
+  playerColor=room.color;mode='two';
+  const winner=room.result==='1-0'?'w':room.result==='0-1'?'b':null;
+  meta={id:'friend-'+room.id,color:playerColor,createdAt:room.createdAt,result:winner?(winner===playerColor?'win':'loss'):'draw',assisted:false,opponentName:playerColor==='w'?room.black.name:room.white.name};
+  lastMove=records.at(-1)||null;selected=null;legal=[];currentRatingResult=null;persistGame();
+  library.setView('play');render();renderRating();if(records.length)review.open(0);
+}
 

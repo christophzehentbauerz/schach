@@ -1,39 +1,39 @@
 # Persönlicher Schachcoach
 
-Eigenständige Website aus dem bestehenden Sites-Schachcoach. Gegen den Computer (Weiß oder Schwarz), Stockfish-Analyse, PGN-Import/-Export, Partienarchiv, eigener Lernwert und Wiederholung fehlerhafter Stellungen. Keine Onlinegegner.
+Eigenständiger Schachcoach mit Computergegner, Stockfish-Analyse, Partienarchiv und Freundschaftspartien. Jedes Profil hat einen persönlichen Zugangslink und getrennte Ergebnisse.
 
-## Lokal starten
+## Lokal
 
-Node 22.13+ (empfohlen 24), dann in diesem Ordner:
-
-```sh
-npm ci --workspaces=false
-npm run dev
-```
-
-http://127.0.0.1:5173 – lokale SQLite-Datenbank in `.data/coach.sqlite`. Der Entwicklungsserver bindet nur an die Loopback-Adresse und benötigt dort kein Passwort. **Nicht als öffentlichen Server verwenden.**
+Node 24, `npm ci --workspaces=false`, anschließend `npm run dev`. Auf http://127.0.0.1:5173 ein Testprofil anlegen. SQLite liegt in `.data/coach.sqlite`; der Entwicklungsserver bindet ausschließlich an Loopback.
 
 ## Vercel
 
-Projektverzeichnis `apps/personal`, Framework „Other“, Build `npm run build`, Ausgabe `public`, Installation `npm ci --workspaces=false`, Node 24.
+Projektverzeichnis `apps/personal`, Framework Other, Build `npm run build`, Ausgabe `public`, Installation `npm ci --workspaces=false`.
 
-1. Neon/Postgres verbinden (`DATABASE_URL`), Migration einmal mit `npm run db:migrate` und gesetzter Datenbankvariable ausführen.
-2. `SESSION_SECRET` als zufälliges Geheimnis (mind. 32 Zeichen) und `PASSWORD_HASH` als `salt:scrypt-hex` setzen. `scripts/password.js` erzeugt den Hash; das Klartextpasswort nie committen.
-3. API und statische Dateien gemeinsam deployen. Ohne Speicherdaten/Zugangskonfiguration bleiben die privaten API-Endpunkte geschlossen (503), kein flüchtiger Ersatzspeicher.
+- Neon/Postgres über `DATABASE_URL` verbinden und `npm run db:migrate` mit gesetzter Variable ausführen.
+- `SESSION_SECRET` muss ein zufälliges Geheimnis mit mindestens 32 Zeichen sein.
+- API und statische Dateien zusammen deployen. Ohne Konfiguration sind private APIs geschlossen.
+- Für die Migration des ursprünglichen Besitzers einen Spieler mit ID `personal` erstellen. Die gleichnamige vorhandene `coach_state`-Zeile bleibt unverändert. Alte signierte Sitzungen bleiben gültig; neue Zugänge verwenden persönliche Links. Kein Passwort nötig.
 
-## Datensicherung und Grenzen
+## Zugang und Speicherung
 
-- Autoritativer Speicher: Postgres online, SQLite ausschließlich in der lokalen Entwicklung.
-- Browserdaten sind nur eine Warteschlange für noch nicht bestätigte Änderungen. Speicherstatus unterscheidet bestätigt/ausstehend/Fehler.
-- Optimistischer Versionsvergleich verhindert stilles Überschreiben zwischen Geräten. Bei Konflikt lokale Sicherung exportieren, danach Serverstand laden. Ein JSON-Import ergänzt fehlende Partien; bestehende werden nicht überschrieben. Rating wird beim Import nicht rückwirkend verändert.
-- Aktuelle Partie, Archiv und Analysen werden gemeinsam versioniert. Maximale Übertragung 3 MB; große Archive regelmäßig als JSON/PGN sichern. Ein späterer Ausbau sollte einzelne Partien als Datenbankzeilen speichern.
-- Zugang über ein persönliches Passwort und HttpOnly/Secure/SameSite-Cookie. Nach 30 Tagen neu anmelden. Login-Limit: 20 Versuche je 15 Minuten pro persönlichem Konto.
-- Lern-Elo ist eine unkalibrierte persönliche Orientierung. Tipps, Rücknahmen und Analyse laufender Partien schließen die Partie von der Wertung aus. Computerstufen 400–1600 sind Näherungswerte.
-- Computer und Stockfish laufen in separaten Browser-Workern mit Zeitlimits; keine Engine-Arbeit in Vercel-Funktionen. Analyse wird bei ausgeblendetem Tab pausiert.
-- Die alte `chatgpt.site` hat einen anderen Browser-Ursprung; dortige LocalStorage-Daten sind nicht automatisch auf Vercel lesbar. Vorhandene Partien per PGN exportieren und hier importieren.
+Persönliche Links enthalten 256 Bit Zufall; in Postgres liegt nur ihr SHA-256-Hash. Der Token im URL-Fragment wird beim Öffnen entfernt und gegen ein HttpOnly/Secure/SameSite-Cookie getauscht. Sitzung: ein Jahr. Ersatzlinks machen alte Links ungültig, bestehende Sitzungen bleiben angemeldet. Ein verlorener Link ist ohne bestehende Sitzung nur durch den Betreiber wiederherstellbar. Persönliche Links privat aufbewahren, zum Spielen nur den Partielink teilen.
+
+Profile können selbst angelegt werden (20 pro IP und Tag). Zugangsversuche und Spielaktionen sind ebenfalls begrenzt. Gleichnamige Profile bleiben getrennt. Profilwechsel in anderen Tabs können keine alten Solo-Spielstände in das neue Profil schreiben. Solo-Spielstände/Analysen werden pro Profil mit Versionsvergleich gespeichert; ungesendete Änderungen liegen in einer lokalen Warteschlange. Bei Konflikten zuerst Sicherung exportieren. JSON-Import ergänzt fehlende Partien. Grenze: 3 MB je Solo-Snapshot.
+
+## Miteinander spielen
+
+Unter Miteinander eine Einladung erzeugen, Farbe und Bedenkzeit wählen, Partielink teilen. Nur eine zweite Person kann beitreten. Beide sehen anschließend dieselbe dauerhaft gespeicherte Partie; das Brett aktualisiert sich etwa alle drei Sekunden. Die Uhr startet beim Beitritt:
+
+- 30 oder 60 Minuten Gesamtbedenkzeit je Person.
+- 1 oder 3 Tage je Zug; mit jedem Zug beginnt die nächste Frist.
+
+Der Server prüft Identität, Zugrecht, Legalität und Version. Parallele veraltete Änderungen werden abgelehnt. Uhren laufen auch offline weiter; Zeitüberschreitung wird bei der nächsten Serverabfrage dauerhaft festgestellt. Aufgabe, Remisangebote, automatische Spielenden, PGN und Analyse abgeschlossener Partien sind enthalten. Die Liste zeigt die letzten 100 Partien; ältere bleiben in der Datenbank. Keine Push-Benachrichtigungen oder automatische Spielersuche.
+
+Computer und Stockfish laufen in Browser-Workern. Lern-Elo ist eine persönliche, unkalibrierte Orientierung für Computerpartien; Freundschaftsergebnisse werden separat gezählt. Computerstufen 400–1600 sind Näherungswerte. Vorhandene Daten der alten chatgpt.site können wegen des anderen Ursprungs per PGN importiert werden.
 
 ## Prüfung
 
-`npm test` prüft Speicher-Roundtrip/konkurrierende Schreibzugriffe, Login, Farben/Wertung und spezielle Startstellungen. `npm run build` prüft JavaScript-Syntax. Browserprüfung: Computerzug, Reload, Analyse, Archiv und mobile Darstellung.
+`npm test`: Profiltrennung, Linkwechsel, Signaturen, Migration, Versionen, Beitrittsrennen, Zugrecht/Legalität, Schachmatt, Remis, Aufgabe und Uhren. `npm run build`: JavaScript-Syntax. Browserprüfung: Profil anlegen, Einladung, Zug, Reload und mobile Darstellung.
 
-Stockfish und Figuren: Lizenz-/Quellcodehinweise in der Website und unter `public/vendor` bleiben erhalten.
+Lizenz-/Quellcodehinweise für Stockfish und Figuren in der Website und `public/vendor` bleiben erhalten.

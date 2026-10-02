@@ -10,7 +10,7 @@ export function saveToLibrary(meta, game, mode, elo, records) {
   saveMeta(meta);
   if (!records.length && !meta.result) return;
   const old = JSON.parse(storage.getItem(PREFIX + meta.id) || 'null');
-  const snapshot = { version: 1, moves: records.map(r => r.san), startFen: records[0]?.before, mode, elo, savedAt: Date.now() };
+  const snapshot = { version: 1, headers: game.getHeaders(), moves: records.map(r => r.san), startFen: records[0]?.before, mode, elo, savedAt: Date.now() };
   storage.setItem(PREFIX + meta.id, JSON.stringify({ ...old, ...meta, snapshot, pgn: game.pgn(), updatedAt: Date.now() }));
 }
 export function allGames() { return storage.keys().filter(k => k.startsWith(PREFIX)).map(k => { try { return JSON.parse(storage.getItem(k)); } catch { return null; } }).filter(Boolean).sort((a,b) => b.updatedAt - a.updatedAt); }
@@ -22,6 +22,7 @@ export function setupLibrary({ open, progress, getCurrent }) {
     document.querySelectorAll('[data-nav]').forEach(node => { node.classList.toggle('active', node.dataset.nav === name); node.setAttribute('aria-current', node.dataset.nav === name ? 'page' : 'false'); });
     if (name === 'archive') renderArchive();
     if (name === 'progress') renderProgress();
+    document.dispatchEvent(new CustomEvent('coach-view',{detail:name}));
   }
   function renderArchive() {
     const list = $('archive-list'), filter = $('archive-filter').value, items = allGames().filter(g => !filter || (filter === 'active' ? !g.result : g.result === filter));
@@ -32,7 +33,7 @@ export function setupLibrary({ open, progress, getCurrent }) {
       const row = document.createElement('article'); row.className = 'archive-row';
       const icon = document.createElement('span'); icon.className = 'result-icon ' + (item.result || 'active'); icon.textContent = item.result === 'win' ? '1' : item.result === 'loss' ? '0' : item.result === 'draw' ? '½' : '♟';
       const info = document.createElement('div'), title = document.createElement('strong'), detail = document.createElement('p');
-      title.textContent = `${item.snapshot.mode === 'ai' ? 'Computer · Stufe ' + item.snapshot.elo : 'Freies Brett / Import'} · ${labels[item.result] || 'Laufend'}`;
+      title.textContent = `${item.opponentName ? 'Gegen '+item.opponentName : item.snapshot.mode === 'ai' ? 'Computer · Stufe ' + item.snapshot.elo : 'Freies Brett / Import'} · ${labels[item.result] || 'Laufend'}`;
       detail.textContent = `${format(item.createdAt)} · ${Math.ceil(item.snapshot.moves.length/2)} Züge · ${item.color === 'b' ? 'Schwarz' : 'Weiß'}${item.assisted ? ' · mit Hilfe' : ''}`;
       info.append(title, detail);
       const button = document.createElement('button'); button.className = 'btn'; button.textContent = item.result ? 'Analysieren' : 'Fortsetzen';

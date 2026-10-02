@@ -4,7 +4,7 @@ export const BACKUP_KEY=SAVE_KEY+'-backup', ARCHIVE_KEY=SAVE_KEY+'-previous';
 export function recordMove(game,move,before){return {before,after:game.fen(),san:move.san,color:move.color,from:move.from,to:move.to,piece:move.piece,captured:move.captured||null,promotion:move.promotion||null};}
 export function saveGame(storage,game,mode,elo,records){
   let savedAt=Date.now();for(const key of [SAVE_KEY,BACKUP_KEY]){try{const previous=JSON.parse(storage.getItem(key));if(Number.isFinite(previous?.savedAt))savedAt=Math.max(savedAt,previous.savedAt+1);}catch{}}
-  const raw=JSON.stringify({version:1,startFen:records?.[0]?.before,moves:records?records.map(r=>r.san):game.history(),mode,elo,savedAt});
+  const raw=JSON.stringify({version:1,headers:game.getHeaders(),startFen:records?.[0]?.before,moves:records?records.map(r=>r.san):game.history(),mode,elo,savedAt});
   let saved=false;for(const key of [BACKUP_KEY,SAVE_KEY]){try{storage.setItem(key,raw);saved=true;}catch{}}
   if(!saved)throw new Error('Speicher nicht verfügbar');
 }
@@ -13,11 +13,12 @@ export function decode(raw){
   if(data.version!==1||!Array.isArray(data.moves)||data.moves.length>3000||!['ai','two'].includes(data.mode))throw new Error('Ungültiger Spielstand');
   const game=new Chess(data.startFen),records=[];
   for(const san of data.moves){if(typeof san!=='string'||san.length>20)throw new Error('Ungültiger Zug');const before=game.fen(),move=game.move(san);records.push(recordMove(game,move,before));}
+  if(data.headers&&typeof data.headers==='object')for(const [key,value] of Object.entries(data.headers)){if(/^[A-Za-z][A-Za-z0-9_]{0,30}$/.test(key)&&typeof value==='string'&&value.length<=200)game.setHeader(key,value);}
   return {game,records,mode:data.mode,elo:data.elo,savedAt:data.savedAt||0};
 }
 export function archiveGame(storage,game,mode,elo,records){
   if(!records.length)return;
-  storage.setItem(ARCHIVE_KEY,JSON.stringify({version:1,startFen:records[0]?.before,moves:records.map(r=>r.san),mode,elo,savedAt:Date.now()}));
+  storage.setItem(ARCHIVE_KEY,JSON.stringify({version:1,headers:game.getHeaders(),startFen:records[0]?.before,moves:records.map(r=>r.san),mode,elo,savedAt:Date.now()}));
 }
 export function restoreGame(storage,previous=false){
   let found=false;const candidates=[];
