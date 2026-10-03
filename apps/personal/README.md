@@ -30,7 +30,7 @@ Unter Miteinander eine Einladung erzeugen, Farbe und Bedenkzeit wählen, Partiel
 
 Der Server prüft Identität, Zugrecht, Legalität und Version. Parallele veraltete Änderungen werden abgelehnt. Uhren laufen auch offline weiter; Zeitüberschreitung wird bei der nächsten Serverabfrage dauerhaft festgestellt. Aufgabe, Remisangebote, automatische Spielenden, PGN und Analyse abgeschlossener Partien sind enthalten. Die Liste zeigt die letzten 100 Partien; ältere bleiben in der Datenbank. Keine Push-Benachrichtigungen oder automatische Spielersuche.
 
-Computer und Stockfish laufen in Browser-Workern. Lern-Elo ist eine persönliche, unkalibrierte Orientierung für Computerpartien; Freundschaftsergebnisse werden separat gezählt. Computerstufen 400–1600 sind Näherungswerte. Vorhandene Daten der alten chatgpt.site können wegen des anderen Ursprungs per PGN importiert werden.
+Computer und Stockfish laufen in Browser-Workern. Lern-Elo ist eine persönliche, unkalibrierte Orientierung für Computerpartien; Freundschaftsergebnisse werden separat gezählt. Der gemeinsame Spielstart fragt zuerst Computer/Freund, danach Stärke/Farbe bzw. Bedenkzeit ab. Computerpartien beginnen erst nach Start; eine laufende Partie lässt sich separat fortsetzen. Stockfish ersetzt die frühere JavaScript-Suche: 400–1200 sind Trainingsstufen mit begrenzten Bewertungsverlusten unter MultiPV-Kandidaten, 1400–2400 nutzen UCI_LimitStrength/UCI_Elo. Vorauswahl 1400. Keine Kalibrierung gegen Chess.com; niedrige Stufen sind keine gemessenen Elo-Werte. Der vollständige Zugverlauf wird an Stockfish übergeben, damit Wiederholungen berücksichtigt werden. Vorhandene Daten der alten chatgpt.site können wegen des anderen Ursprungs per PGN importiert werden.
 
 ## Prüfung
 

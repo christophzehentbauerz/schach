@@ -103,7 +103,14 @@ export function setupMultiplayer({user,openReview}) {
       $('friend-results').textContent=`${wins} Siege · ${draws} Remis · ${losses} Niederlagen`;
     }catch(error){message(error.message,true);}finally{fetching=false;}
   }
-  $('create-room').onclick=async()=>{if(sending)return;sending=true;$('create-room').disabled=true;const ticket=++epoch;try{const result=await api('POST',{action:'create',color:$('friend-color').value,timeControl:$('friend-time').value});if(ticket===epoch){accept(result.room);message('Einladung erstellt. Teile jetzt den Partielink.');}}catch(error){message(error.message,true);}finally{sending=false;$('create-room').disabled=false;}};
+  async function createInvitation(color,timeControl){
+    if(sending)return false;sending=true;$('create-room').disabled=true;const ticket=++epoch;
+    try{const result=await api('POST',{action:'create',color,timeControl});if(ticket===epoch){accept(result.room);switchView();message('Einladung erstellt. Teile jetzt den Partielink.');return true;}}
+    catch(error){message(error.message,true);throw error;}
+    finally{sending=false;$('create-room').disabled=false;}
+    return false;
+  }
+  $('create-room').onclick=()=>createInvitation($('friend-color').value,$('friend-time').value).catch(()=>{});
   $('join-room').onclick=()=>action('join');
   $('room-back').onclick=()=>{epoch++;room=null;$('friend-lobby').hidden=false;$('friend-game').hidden=true;$('friend-invitation').hidden=true;updateURL(null);message('');loadList();};
   $('invite-back').onclick=()=>$('room-back').click();
@@ -119,5 +126,7 @@ export function setupMultiplayer({user,openReview}) {
   window.addEventListener('online',()=>{if(visible()){if(room)refresh();else loadList();}});
   window.addEventListener('offline',()=>message('Offline · Die Bedenkzeit läuft weiter. Zum Ziehen bitte wieder verbinden.',true));
   setInterval(()=>{if(visible())renderClocks();},1000);startPolling();
+  $('friend-new-setup').onclick=()=>document.querySelector('[data-nav=setup]').click();
   const invitation=new URLSearchParams(location.search).get('room');if(invitation){switchView();openRoom(invitation);}
+  return {createInvitation};
 }

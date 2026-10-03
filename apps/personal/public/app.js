@@ -1,17 +1,17 @@
 import { storage, flush, isConflict } from './cloud.js';
 import { readMeta, freshMeta, saveMeta, saveToLibrary, setupLibrary } from './library.js';
 import { Chess } from './vendor/chess.js';
-import { LEVELS } from './computer.js';
+import { LEVELS, createComputer, computerSearch } from './computer.js';
 import { Stockfish } from './engine.js';
 import { grade } from './analysis-model.js';
 import { createReview } from './review.js';
 import { parsePGN } from './pgn.js';
 import { loadRating, saveRating, outcomeFromGame, rateGame, resultLabel } from './rating.js';
-let review=null,library=null; let meta=readMeta()||freshMeta(); let playerColor=meta.color||'w'; const ended=()=>game.isGameOver()||!!meta.result;
+let review=null,library=null,playVisible=false; let meta=readMeta()||freshMeta(); let playerColor=meta.color||'w'; const ended=()=>game.isGameOver()||!!meta.result;
 import { saveGame, restoreGame, recordMove, archiveGame } from './saved-game.js';
 const $=id=>document.getElementById(id);let game=new Chess(),selected=null,legal=[],records=[],mode='ai',thinking=false,lastMove=null,pendingPromo=null,aiTimer=null,aiWorker=null,generation=0;
 let saveBlocked=false;const jobs=new Set();
-let elo=800;try{const saved=Number(storage.getItem('schachcoach-elo'));if(LEVELS[saved])elo=saved;}catch{}
+let elo=1400;try{const saved=Number(storage.getItem('schachcoach-elo'));if(LEVELS[saved])elo=saved;}catch{}
 let learningRating=loadRating(storage),currentRatingResult=null;
 function pieceImage(color,type){const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 40 40');svg.setAttribute('class','piece');svg.setAttribute('aria-hidden','true');const use=document.createElementNS('http://www.w3.org/2000/svg','use');use.setAttribute('href',`./vendor/pieces.svg#${color}${type}`);svg.append(use);return svg;}
 function ensureImportUI(){
@@ -48,8 +48,8 @@ function settleLearningRating(){
   if(result.changed){try{saveRating(storage,learningRating);meta.ratingResult=result.entry;persistGame();}catch{}}
   renderRating();
 }
-function cancelComputer(){for(const stop of [...jobs])stop();$('hint').disabled=false;clearTimeout(aiTimer);if(aiWorker){aiWorker.terminate();aiWorker=null;}generation++;thinking=false;}
-function renderStrength(){$('elo').value=String(elo);$('elo').disabled=thinking||records.length>0;$('strength-control').classList.toggle('hidden',mode!=='ai');$('opponent-name').textContent=mode==='ai'?`Computer · ca. ${elo} Elo`:'Schwarz';}
+function cancelComputer(){for(const stop of [...jobs])stop();$('hint').disabled=false;clearTimeout(aiTimer);if(aiWorker){aiWorker.dispose();aiWorker=null;}generation++;thinking=false;}
+function renderStrength(){$('opponent-name').textContent=mode==='ai'?`Stockfish · ${elo<1400?'Trainingsstufe':'Ziel-Elo'} ${elo}`:'Schwarz';}
 const files='abcdefgh',glyph={wk:'♔',wq:'♕',wr:'♖',wb:'♗',wn:'♘',wp:'♙',bk:'♚',bq:'♛',br:'♜',bb:'♝',bn:'♞',bp:'♟'};
 const material={p:1,n:3.1,b:3.25,r:5,q:9,k:0};
 const startingMaterial={p:8,n:2,b:2,r:2,q:1},materialValue={p:1,n:3,b:3,r:5,q:9};
@@ -89,7 +89,7 @@ function render(){
   review?.renderView();
   if(!squares.size)initializeBoard();
   const shown=review?.active?review.shown():game;if(!shown)return;
-  renderMaterial(shown);document.body.classList.toggle('black-player',playerColor==='b');$('you-name').textContent='Du · '+(playerColor==='b'?'Schwarz':'Weiß');$('resign').disabled=ended()||!records.length||mode!=='ai';$('elo').disabled=thinking||records.length>0;
+  renderMaterial(shown);document.body.classList.toggle('black-player',playerColor==='b');$('you-name').textContent='Du · '+(playerColor==='b'?'Schwarz':'Weiß');$('resign').disabled=ended()||!records.length||mode!=='ai';
   const legalTargets=new Set(review?.active?[]:legal.map(m=>m.to));
   const changed=[];
   for(const [sq,el] of squares){const piece=shown.get(sq),key=piece?piece.color+piece.type:'';if(el.dataset.piece!==key)changed.push({sq,el,piece,key,oldKey:el.dataset.piece,node:el.querySelector('.piece'),rect:el.getBoundingClientRect()});}
@@ -111,7 +111,7 @@ function render(){
   const over=ended();
   $('turn-label').textContent=review?.active?'Analyse':over?'Partie beendet':game.turn()==='w'?'Weiß am Zug':'Schwarz am Zug';
   $('eval').textContent=review?.active?'Stellung prüfen':over?'Partie beendet':game.isCheck()?'Schach!':game.turn()===playerColor?'Dein Zug':mode==='ai'?(thinking?'Computer denkt …':'Computer pausiert'):'Schwarz am Zug';
-  $('vs-ai').classList.toggle('active',mode==='ai');$('two-player').classList.toggle('active',mode==='two');
+
   if(!review?.active)$('open-review').textContent=ended()?'Partie analysieren':records.length?'Warum?':'Analysieren';
   drawMoves();updateStatus();renderStrength();
   const badge=review?.badge,stamp=$('move-badge');stamp.hidden=!badge?.to;if(badge?.to){stamp.className='move-stamp '+badge.className;stamp.textContent=badge.symbol;stamp.title=badge.label;stamp.style.left=`${(files.indexOf(badge.to[0])+1)*12.5-1}%`;stamp.style.top=`${(8-Number(badge.to[1]))*12.5}%`;}
@@ -144,7 +144,7 @@ function persistGame(){
 }
 function scheduleComputer(){
   clearTimeout(aiTimer);
-  if(!review?.active&&mode==='ai'&&game.turn()!==playerColor&&!ended()){thinking=true;aiTimer=setTimeout(computerMove,140);}
+  if(playVisible&&!review?.active&&mode==='ai'&&game.turn()!==playerColor&&!ended()){thinking=true;aiTimer=setTimeout(computerMove,140);}
 }
 function updateStatus(){let s='Wähle eine Figur und dann ein Feld.';if(meta.result==='loss'&&!game.isGameOver())s='Du hast aufgegeben. Die Partie ist gespeichert.';else if(game.isCheckmate())s=`Schachmatt – ${game.turn()==='w'?'Schwarz':'Weiß'} gewinnt.`;else if(game.isStalemate())s='Patt – die Partie ist remis.';else if(game.isDraw())s='Remis – die Partie ist unentschieden.';else if(game.isCheck())s='Schach! Der König muss aus dem Schach.';else if(thinking)s='Der Computer sucht einen Zug …';$('status').textContent=s}
 function tap(sq){if(review?.active||saveBlocked||isConflict()||thinking||ended()||(mode==='ai'&&game.turn()!==playerColor))return;const p=game.get(sq);if(selected&&legal.some(m=>m.to===sq)){const opts=legal.filter(m=>m.to===sq);if(opts.length>1){showPromotion(opts);return}playMove(opts[0]);return}if(p&&p.color===game.turn()){selected=sq;legal=game.moves({square:sq,verbose:true});render()}else{selected=null;legal=[];render()}}
@@ -156,33 +156,35 @@ function playMove(m){
 }
 function showPromotion(opts){const box=$('promobox');box.innerHTML='';for(const type of ['q','r','b','n']){const b=document.createElement('button');b.append(pieceImage(game.turn(),type));b.setAttribute('aria-label','Umwandeln in '+({q:'Dame',r:'Turm',b:'Läufer',n:'Springer'}[type]));b.onclick=()=>{const m=opts[0];m.promotion=type;$('promotion').classList.remove('show');playMove(m)};box.append(b)}$('promotion').classList.add('show')}
 $('promotion').addEventListener('click',e=>{if(e.target===$('promotion'))$('promotion').classList.remove('show')});
-function startJob(file,payload,onData,onFailure){
-  let worker,timer,stopped=false;
-  const stop=()=>{if(stopped)return;stopped=true;clearTimeout(timer);worker?.terminate();jobs.delete(stop);};
-  const fail=()=>{stop();onFailure();};
-  const arm=()=>{clearTimeout(timer);timer=setTimeout(fail,12000);};
-  jobs.add(stop);
-  try{
-    worker=new Worker(new URL(file,import.meta.url),{type:'module'});
-    worker.onmessage=({data})=>{if(stopped)return;if(data.error){fail();return;}arm();if(data.done||file==='./computer-worker.js')stop();onData(data);};
-    worker.onerror=fail;worker.onmessageerror=fail;arm();worker.postMessage(payload);
-  }catch{fail();}
-  return stop;
-}
-function computerMove(){
-  if(ended()||mode!=='ai'||game.turn()===playerColor)return;
+async function computerMove(){
+  if(!playVisible||ended()||mode!=='ai'||game.turn()===playerColor)return;
   const fen=game.fen(),requestGeneration=generation;
-  startJob('./computer-worker.js',{fen,elo,generation},result=>{
-    if(requestGeneration!==generation||game.fen()!==fen||mode!=='ai')return;
-    thinking=false;if(result.move)playMove(result.move);else render();
-  },()=>{if(requestGeneration!==generation)return;thinking=false;render();$('status').textContent='Berechnung unterbrochen. Die Partie bleibt erhalten.';$('retry-computer').hidden=false;});
+  try{
+    if(!aiWorker)aiWorker=createComputer();
+    const best=await computerSearch(aiWorker,fen,elo,{startFen:records[0]?.before||fen,moves:records.map(m=>m.from+m.to+(m.promotion||''))});
+    if(requestGeneration!==generation||game.fen()!==fen||mode!=='ai'||!playVisible)return;
+    const copy=new Chess(fen),move=copy.move({from:best.slice(0,2),to:best.slice(2,4),promotion:best[4]});
+    thinking=false;playMove(move);
+  }catch(error){if(requestGeneration!==generation)return;aiWorker?.dispose();aiWorker=null;thinking=false;render();$('status').textContent='Stockfish konnte den Zug nicht berechnen. Deine Partie bleibt gespeichert. Bitte erneut versuchen.';$('retry-computer').hidden=false;}
 }
 $('retry-computer').onclick=()=>{$('retry-computer').hidden=true;cancelComputer();scheduleComputer();render();};
 function pieceName(p){return ({k:'König',q:'Dame',r:'Turm',b:'Läufer',n:'Springer',p:'Bauer'})[p]||'Figur'}
 function outcome(){if(game.isCheckmate())return game.turn()==='w'?'Computer gewinnt durch Schachmatt.':'Du gewinnst durch Schachmatt!';if(game.isStalemate()||game.isDraw())return 'Die Partie endet remis.';return 'Partie beendet.'}
 function finishGame(){if(!meta.result)meta.result=outcomeFromGame(game,playerColor);persistGame();thinking=false;selected=null;legal=[];settleLearningRating();review.open(0);}
-function newGame(){if((records.length&&!ended()||saveBlocked)&&!window.confirm('Neue Partie beginnen? Alle gespielten Züge bleiben im Partienarchiv erhalten.'))return;try{archiveGame(storage,game,mode,elo,records);}catch{if(!window.confirm('Sicherung nicht möglich. Trotzdem eine neue Partie beginnen?'))return;}if(records.length)persistGame();meta=freshMeta($('play-color').value);playerColor=meta.color;saveBlocked=false;review?.reset();cancelComputer();$('retry-computer').hidden=true;$('retry-analysis').hidden=true;$('promotion').classList.remove('show');game=new Chess();records=[];selected=null;legal=[];lastMove=null;thinking=false;currentRatingResult=null;$('analysis-card').classList.remove('show');persistGame();scheduleComputer();render();renderRating()}
-$('new').onclick=newGame;
+export function beginGame({strength=1400,color='w',opponent='computer'}){
+  if(!LEVELS[strength]||!['w','b'].includes(color)||!['computer','board'].includes(opponent))return false;
+  if(saveBlocked||isConflict()){alert('Bitte zuerst den Speicherstand wiederherstellen.');return false;}
+  if(records.length)persistGame();
+  try{archiveGame(storage,game,mode,elo,records);}catch{alert('Die bisherige Partie konnte nicht gesichert werden.');return false;}
+  review?.reset();cancelComputer();elo=strength;mode=opponent==='board'?'two':'ai';playerColor=color;
+  meta=freshMeta(color);meta.engineVersion='stockfish-v2';game=new Chess();records=[];selected=null;legal=[];lastMove=null;currentRatingResult=null;
+  $('retry-computer').hidden=true;$('retry-analysis').hidden=true;$('promotion').classList.remove('show');$('analysis-card').classList.remove('show');
+  storage.setItem('schachcoach-elo',String(elo));persistGame();library.setView('play');render();renderRating();return true;
+}
+export function showStart(){library.setView('setup');}
+export function resumeGame(){library.setView('play');}
+export function activeGame(){return {available:(records.length>0||!!meta.engineVersion)&&!ended(),strength:elo,color:playerColor,mode,moves:records.length};}
+$('new').onclick=showStart;
 $('undo').onclick=()=>{if(thinking||ended())return;if(!records.length)return;meta.assisted=true;review?.reset();cancelComputer();game.undo();records.pop();if(mode==='ai'&&records.length&&game.turn()!==playerColor){game.undo();records.pop()}const last=records[records.length-1];lastMove=last?{from:last.from,to:last.to}:null;selected=null;legal=[];$('analysis-card').classList.remove('show');persistGame();scheduleComputer();render()};
 $('hint').onclick=async()=>{
   if(review?.active||thinking||ended()||(mode==='ai'&&game.turn()!==playerColor))return;
@@ -201,13 +203,6 @@ $('restore-game').onclick=()=>{
   try{const saved=restoreGame(storage,true);if(!saved){$('save-status').textContent='Keine Sicherung gefunden.';return;}if(records.length&&!window.confirm('Die gespeicherte Sicherung öffnen?'))return;meta=freshMeta(playerColor);meta.assisted=true;loadSaved(saved);persistGame();$('save-status').textContent='Sicherung wiederhergestellt.';}
   catch{$('save-status').textContent='Keine lesbare Sicherung gefunden. Vorhandene Daten bleiben erhalten.';}
 };
-function setMode(next){
-  if(next===mode)return;
-  review?.reset();cancelComputer();mode=next;meta.assisted=true;selected=null;legal=[];persistGame();scheduleComputer();render();
-  if(ended())finishGame();
-}
-$('vs-ai').onclick=()=>setMode('ai');$('two-player').onclick=()=>setMode('two');
-$('elo').onchange=()=>{const next=Number($('elo').value);if(!LEVELS[next])return;elo=next;if(records.length)meta.assisted=true;try{storage.setItem('schachcoach-elo',String(elo));}catch{}persistGame();renderStrength();};
 ensureImportUI();
 ensureAnalysisStyles();
 ensureRatingUI();
@@ -222,12 +217,10 @@ if(restored&&ended())settleLearningRating();
 library=setupLibrary({progress:()=>learningRating,getCurrent:()=>({game,meta}),open:(item,saved,index)=>{persistGame();meta={id:item.id,color:item.color,createdAt:item.createdAt,result:item.result,assisted:item.assisted,ratingResult:item.ratingResult,opponentName:item.opponentName};playerColor=meta.color||'w';loadSaved(saved);persistGame();if(item.result||index!==undefined)review.open(index||0);}});
 $('resign').onclick=()=>{if(ended()||!records.length||mode!=='ai')return;if(!confirm('Diese Partie aufgeben? Sie bleibt im Archiv.'))return;cancelComputer();meta.result='loss';persistGame();finishGame();render();};
 $('flip-board').onclick=()=>{document.body.classList.toggle('flipped');render();};
-$('play-color').value=playerColor;
-$('play-color').onchange=()=>{$('color-note').textContent='Gilt für die nächste neue Partie.';};
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&review?.busy){$('pause-analysis').click();}});
 window.addEventListener('pagehide',()=>{cancelComputer();review?.reset();});
 window.addEventListener('pageshow',event=>{if(event.persisted){scheduleComputer();render();}});
-document.addEventListener('coach-view',event=>{if(event.detail!=='play'){cancelComputer();if(review?.busy)$('pause-analysis').click();}else if(!review?.active){scheduleComputer();render();}});
+document.addEventListener('coach-view',event=>{playVisible=event.detail==='play';if(event.detail!=='play'){cancelComputer();if(review?.busy)$('pause-analysis').click();}else if(!review?.active){scheduleComputer();render();}});
 export function openFriendReview(room){
   if(room.status!=='finished')return;
   if(records.length)persistGame();review?.reset();cancelComputer();

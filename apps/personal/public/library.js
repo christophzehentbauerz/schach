@@ -18,6 +18,7 @@ export function setupLibrary({ open, progress, getCurrent }) {
   const labels = { win: 'Sieg', loss: 'Niederlage', draw: 'Remis', imported: 'Importiert' };
   const format = time => new Date(time).toLocaleDateString('de-AT', { day: '2-digit', month: 'short', year: 'numeric' });
   function setView(name) {
+    if(name!=='friends'){const url=new URL(window.location.href);url.searchParams.delete('room');history.replaceState(null,'',url.pathname+url.search);}
     document.querySelectorAll('[data-page]').forEach(node => { node.hidden = node.dataset.page !== name; });
     document.querySelectorAll('[data-nav]').forEach(node => { node.classList.toggle('active', node.dataset.nav === name); node.setAttribute('aria-current', node.dataset.nav === name ? 'page' : 'false'); });
     if (name === 'archive') renderArchive();
