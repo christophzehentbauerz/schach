@@ -8,3 +8,5 @@ coverage
 .DS_Store
 *.log
 apps/api/prisma/dev.db
+
+.vercel/
