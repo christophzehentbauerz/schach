@@ -37,3 +37,9 @@ Computer und Stockfish laufen in Browser-Workern. Lern-Elo ist eine persönliche
 `npm test`: Profiltrennung, Linkwechsel, Signaturen, Migration, Versionen, Beitrittsrennen, Zugrecht/Legalität, Schachmatt, Remis, Aufgabe und Uhren. `npm run build`: JavaScript-Syntax. Browserprüfung: Profil anlegen, Einladung, Zug, Reload und mobile Darstellung.
 
 Lizenz-/Quellcodehinweise für Stockfish und Figuren in der Website und `public/vendor` bleiben erhalten.
+
+## Ausführliche Zugerklärungen
+
+Jeder Zug wird in sieben Schritten erklärt: Ausgangslage, konkrete Veränderungen, legale gegnerische Antworten, Bewertungsvergleich, vollständige berechnete Folge, Lernübung und Aussagegrenzen. Die Erklärung nennt Felder, Linienöffnungen, Schläge, Rochade, en passant, Umwandlung, Bauernstruktur und Materialbilanz. Alle angezeigten PV-Halbzüge sind einzeln erläutert und am Brett anwählbar. Angriffslinien sind ausdrücklich von legalen Schlägen und nachgewiesenen Gewinnen getrennt. Bewertungen bei Matt werden nicht als fingierter Bauernverlust angezeigt. Widersprüchliche Suchstände werden offengelegt.
+
+Analysen nutzen den vollständigen bisherigen Zugverlauf, 700 ms je Standardsuche und 3500 ms bei genauer Prüfung des ausgewählten Zuges. Versionierte Analyse-Caches ersetzen ältere Berechnungen; Partie- und Ergebnisdaten bleiben erhalten. Die Texte basieren auf geprüften Brettfakten und Engine-Varianten, nicht auf einem Sprachmodell. Sie behaupten keine vollständige Widerlegung aller anderen möglichen Züge.

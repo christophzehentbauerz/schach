@@ -35,9 +35,11 @@
 <p id="coach-text" class="coach-text"></p>
 <div class="branch-choices"><button id="played-choice" class="active">Gespielt</button><button id="best-choice">Besserer Zug</button></div>
 <div class="variant-box"><div class="variant-heading"><span id="line-label"></span><div><button id="line-start" aria-label="Vor den Zug">|‹</button><button id="line-back" aria-label="Variante zurück">‹</button><button id="line-forward" aria-label="Variante weiter">›</button></div></div><div id="line-moves" class="line-moves"></div></div>
+<p id="coach-board-context" class="coach-board-context" role="status"></p>
 <div class="engine-controls"><span id="engine-depth">Stockfish 17.1 Lite</span><button id="deepen" class="btn">Genauer prüfen</button></div>
 <div id="analysis-progress" class="thinking" hidden><span class="spinner"></span><span id="analysis-progress-text">Engine wird geladen …</span></div>
 <p id="analysis-error" class="analysis-error" role="alert" hidden></p><div class="analysis-actions"><button id="pause-analysis" class="btn" hidden>Analyse pausieren</button><button id="retry-analysis" class="btn" hidden>Analyse fortsetzen</button></div>
+<div id="coach-details" class="coach-details" aria-label="Ausführliche Zugerklärung"></div>
 <div class="note">Pluswerte sprechen für Weiß, Minuswerte für Schwarz. M bedeutet Matt. Die Einschätzung hängt von Rechentiefe und Zeit ab; die Erklärungen beziehen sich auf die gezeigten Varianten.</div>
 </section>
 </aside>
