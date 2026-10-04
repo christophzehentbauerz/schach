@@ -16,7 +16,7 @@ async function boot() {
   try {
     const state=await initialize();user=state.user;
     $('profile-name').textContent=user.name;
-    if(!appLoaded){const app=await import('./app.js');const {setupMultiplayer}=await import('./multiplayer.js');const multiplayer=setupMultiplayer({user,openReview:app.openFriendReview});const {setupStart}=await import('./setup.js');setupStart({app,multiplayer});appLoaded=true;}
+    if(!appLoaded){const app=await import('./app.js');const {setupMultiplayer}=await import('./multiplayer.js');const multiplayer=setupMultiplayer({user,openReview:app.openFriendReview});const {setupStart}=await import('./setup.js');setupStart({app,multiplayer});const {setupBoardFocus}=await import('./board-focus.js');setupBoardFocus();appLoaded=true;}
     $('gate').hidden=true;$('workspace').hidden=false;
   }catch(error){$('gate').hidden=false;$('gate-message').textContent=error.message;$('login-form').hidden=error.status!==401;$('conflict-actions').hidden=error.status!==409;$('gate-retry').hidden=error.status===401||error.status===409;}
 }

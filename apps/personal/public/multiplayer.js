@@ -84,6 +84,7 @@ export function setupMultiplayer({user,openReview}) {
   }
   function tap(sq){
     if(!room||sending||room.status!=='active'||game.turn()!==room.color)return;
+    if(selected===sq){selected=null;legal=[];render();return;}
     const options=selected?legal.filter(m=>m.to===sq):[];
     if(options.length){if(options.some(m=>m.promotion)){const dialog=$('friend-promotion');dialog.replaceChildren();const heading=document.createElement('h3');heading.textContent='In welche Figur umwandeln?';dialog.append(heading);for(const type of ['q','r','b','n']){const button=document.createElement('button');button.className='btn';button.textContent=pieceNames[type];button.onclick=()=>{dialog.close();action('move',{move:{from:selected,to:sq,promotion:type}});};dialog.append(button);}dialog.showModal();return;}action('move',{move:{from:selected,to:sq}});return;}
     const piece=game.get(sq);selected=piece?.color===room.color?sq:null;legal=selected?game.moves({square:selected,verbose:true}):[];render();

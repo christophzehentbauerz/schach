@@ -147,7 +147,7 @@ function scheduleComputer(){
   if(playVisible&&!review?.active&&mode==='ai'&&game.turn()!==playerColor&&!ended()){thinking=true;aiTimer=setTimeout(computerMove,140);}
 }
 function updateStatus(){let s='Wähle eine Figur und dann ein Feld.';if(meta.result==='loss'&&!game.isGameOver())s='Du hast aufgegeben. Die Partie ist gespeichert.';else if(game.isCheckmate())s=`Schachmatt – ${game.turn()==='w'?'Schwarz':'Weiß'} gewinnt.`;else if(game.isStalemate())s='Patt – die Partie ist remis.';else if(game.isDraw())s='Remis – die Partie ist unentschieden.';else if(game.isCheck())s='Schach! Der König muss aus dem Schach.';else if(thinking)s='Der Computer sucht einen Zug …';$('status').textContent=s}
-function tap(sq){if(review?.active||saveBlocked||isConflict()||thinking||ended()||(mode==='ai'&&game.turn()!==playerColor))return;const p=game.get(sq);if(selected&&legal.some(m=>m.to===sq)){const opts=legal.filter(m=>m.to===sq);if(opts.length>1){showPromotion(opts);return}playMove(opts[0]);return}if(p&&p.color===game.turn()){selected=sq;legal=game.moves({square:sq,verbose:true});render()}else{selected=null;legal=[];render()}}
+function tap(sq){if(review?.active||saveBlocked||isConflict()||thinking||ended()||(mode==='ai'&&game.turn()!==playerColor))return;if(selected===sq){selected=null;legal=[];render();return;}const p=game.get(sq);if(selected&&legal.some(m=>m.to===sq)){const opts=legal.filter(m=>m.to===sq);if(opts.length>1){showPromotion(opts);return}playMove(opts[0]);return}if(p&&p.color===game.turn()){selected=sq;legal=game.moves({square:sq,verbose:true});render()}else{selected=null;legal=[];render()}}
 function playMove(m){
   review?.reset();
   const before=game.fen(),move=game.move({from:m.from,to:m.to,promotion:m.promotion||'q'});
